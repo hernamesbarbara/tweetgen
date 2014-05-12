@@ -4,10 +4,7 @@
 """
 import os
 import sys
-import numpy as np
-import pandas as pd
 import json
-import psycopg2 as pg
 from pymongo import MongoClient
 import twitter
 from twitterapi import authenticate_from_file
