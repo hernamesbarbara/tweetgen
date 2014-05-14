@@ -12,27 +12,37 @@ from twitterapi import make_twitter_request
 from twitterapi import log_msg
 
 MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017')
+db = MongoClient(MONGO_URI)['yhtweets']
 
-def get_retweeters(status_id, api):
-    return make_twitter_request(api.statuses.retweeters.ids, _id = status_id)
+FMT_STATUS_URL = "https://twitter.com/yhathq/status/{status_id}"
+
+def get_retweeters_details(status_id, api):
+    return make_twitter_request(api.statuses.retweets.id, id=status_id)
+
+def find_by_status_id(status_id):
+    return db.retweeters.find_one({"status_id": status_id})
+
+def find_by_object_id(object_id):
+    return db.retweeters.find_one({"_id": object_id})
+
+def has_retweeter_details(doc):
+    return "retweeter_details" in doc.keys()
 
 twitter_api = authenticate_from_file('./yhat_secrets.json')
 tweet_ids = open('./tweet_ids.csv').read().split('\n')
-db = MongoClient(MONGO_URI)['yhtweets']
-
 
 for i, tweet_id in enumerate(tweet_ids):
+    if i % 10 == 0:
+        print log_msg("{} of {}".format(i, len(tweet_ids)))
+        print log_msg("{} records in the database".format(db.retweeters.count()))
     if not tweet_id:
         continue
     tweet_id = str(tweet_id)
-    if i % 10 == 0:
-        print >> sys.stdout, log_msg("{} of {}".format(i, len(tweet_ids)))
-    if not db.retweeters.find_one({"status_id": tweet_id}):
-        rts = get_retweeters(tweet_id, twitter_api)
-        if rts:
-            new_doc = {
-                "status_id": tweet_id,
-                "retweeter_ids": map(str, rts['ids'])
-            }
-            db.retweeters.save(new_doc)
-
+    rted_by = find_by_status_id(tweet_id)
+    if rted_by is None:
+        rted_by = get_retweeters_details(tweet_id, twitter_api)
+        rted_by = {
+            "status_id": tweet_id,
+            "retweeters": rted_by
+        }
+        rted_by = db.retweeters.save(rted_by)
